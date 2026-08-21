@@ -4,12 +4,22 @@ let token = sessionStorage.getItem('xcloud_token') || '';
 let operations = Number(sessionStorage.getItem('xcloud_operations') || 0);
 
 function setLogged(v) {
-  $('loginView').hidden = v;
-  $('appView').hidden = !v;
-  $('topActions').hidden = !v;
+  const login = $('loginView');
+  const app = $('appView');
+  const actions = $('topActions');
+
+  login.hidden = v;
+  app.hidden = !v;
+  actions.hidden = !v;
+
+  // Fallback explícito para navegadores/estilos que sobrescrevam [hidden].
+  login.style.display = v ? 'none' : 'grid';
+  app.style.display = v ? 'grid' : 'none';
+  actions.style.display = v ? 'flex' : 'none';
+
   if (v) {
     $('opsCount').textContent = operations;
-    scrollTo(0, 0);
+    window.scrollTo(0, 0);
   }
 }
 
