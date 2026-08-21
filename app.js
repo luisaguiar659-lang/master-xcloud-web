@@ -154,6 +154,107 @@ $('logoutBtn').onclick = async () => {
   $('loginStatus').textContent = 'Sessão encerrada.';
 };
 
+
+let activationStartedAt = 0;
+let activationClock = null;
+let activationMessagesTimer = null;
+
+const activationMessages = [
+  'Conectando ao painel...',
+  'Preparando o dispositivo...',
+  'Enviando dados de ativação...',
+  'Configurando DNS...',
+  'Finalizando a ativação...'
+];
+
+function resetActivationOverlay() {
+  $('activationWorking').hidden = false;
+  $('activationSuccess').hidden = true;
+  $('activationError').hidden = true;
+
+  $('activationWorking').style.display = 'block';
+  $('activationSuccess').style.display = 'none';
+  $('activationError').style.display = 'none';
+}
+
+function openActivationOverlay(device) {
+  resetActivationOverlay();
+
+  $('activationDevice').textContent = device;
+  $('activationMessage').textContent = activationMessages[0];
+  $('activationTimer').textContent = '0,0 s';
+
+  $('activationOverlay').hidden = false;
+  $('activationOverlay').style.display = 'grid';
+
+  activationStartedAt = performance.now();
+
+  let messageIndex = 0;
+  activationMessagesTimer = setInterval(() => {
+    messageIndex = Math.min(messageIndex + 1, activationMessages.length - 1);
+    $('activationMessage').textContent = activationMessages[messageIndex];
+
+    const dots = document.querySelectorAll('.activation-steps .step-dot');
+    dots.forEach((dot, idx) => dot.classList.toggle('active', idx === Math.min(messageIndex, 2)));
+  }, 3000);
+
+  activationClock = setInterval(() => {
+    const seconds = (performance.now() - activationStartedAt) / 1000;
+    $('activationTimer').textContent = `${seconds.toFixed(1).replace('.', ',')} s`;
+  }, 100);
+}
+
+function stopActivationTimers() {
+  if (activationClock) clearInterval(activationClock);
+  if (activationMessagesTimer) clearInterval(activationMessagesTimer);
+  activationClock = null;
+  activationMessagesTimer = null;
+}
+
+function showActivationSuccess(device) {
+  stopActivationTimers();
+  const seconds = (performance.now() - activationStartedAt) / 1000;
+
+  $('activationWorking').hidden = true;
+  $('activationWorking').style.display = 'none';
+
+  $('activationSuccess').hidden = false;
+  $('activationSuccess').style.display = 'grid';
+
+  $('successDevice').textContent = device;
+  $('successTime').textContent = `Concluído em ${seconds.toFixed(1).replace('.', ',')} s`;
+}
+
+function showActivationError(message) {
+  stopActivationTimers();
+
+  $('activationWorking').hidden = true;
+  $('activationWorking').style.display = 'none';
+
+  $('activationError').hidden = false;
+  $('activationError').style.display = 'grid';
+
+  $('activationErrorText').textContent = message;
+}
+
+function closeActivationOverlay() {
+  stopActivationTimers();
+  $('activationOverlay').hidden = true;
+  $('activationOverlay').style.display = 'none';
+}
+
+$('newActivationBtn').onclick = () => {
+  closeActivationOverlay();
+  $('device').value = '';
+  $('playlist').value = '';
+  $('device').focus();
+};
+
+$('retryActivationBtn').onclick = () => {
+  closeActivationOverlay();
+  $('device').focus();
+};
+
 $('executeBtn').onclick = async () => {
   const device = $('device').value.trim().toUpperCase();
   const playlist = $('playlist').value.trim();
@@ -170,10 +271,8 @@ $('executeBtn').onclick = async () => {
 
   const b = $('executeBtn');
   b.disabled = true;
-  b.textContent = 'PROCESSANDO...';
-  $('timeline').innerHTML = '';
 
-  row('working', 'ATIVANDO', 'Cadastrando dispositivo e adicionando DNS...');
+  openActivationOverlay(device);
 
   try {
     const d = await request('/operations/activate', {
@@ -181,25 +280,24 @@ $('executeBtn').onclick = async () => {
       body: JSON.stringify({device, playlist})
     });
 
-    row('success', 'CONCLUÍDO', d.message || 'Ativação concluída.');
     operations++;
     sessionStorage.setItem('xcloud_operations', operations);
     $('opsCount').textContent = operations;
 
-    $('device').value = '';
-    $('playlist').value = '';
-    $('device').focus();
+    showActivationSuccess(device);
   } catch (e) {
-    row('error', 'ERRO', e.message);
+    showActivationError(e.message);
 
     if (/sessão expirada|sessão ausente/i.test(e.message)) {
       token = '';
       sessionStorage.removeItem('xcloud_token');
-      setTimeout(() => setLogged(false), 1000);
+      setTimeout(() => {
+        closeActivationOverlay();
+        setLogged(false);
+      }, 1800);
     }
   } finally {
     b.disabled = false;
-    b.textContent = 'ATIVAR MAC + DNS';
   }
 };
 

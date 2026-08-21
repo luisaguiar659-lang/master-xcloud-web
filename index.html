@@ -26,6 +26,63 @@
   </div>
 </div>
 
+
+<div id="activationOverlay" class="activation-overlay" hidden aria-live="polite">
+  <div class="activation-stage">
+    <div id="activationWorking">
+      <div class="activation-logo-wrap">
+        <div class="activation-ring"></div>
+        <img class="activation-logo" src="logo_master_xcloud.png" alt="Master XCloud">
+      </div>
+
+      <p class="activation-kicker">MASTER XCLOUD</p>
+      <h2>ATIVANDO DISPOSITIVO</h2>
+      <p id="activationMessage" class="activation-message">Preparando ativação...</p>
+
+      <div class="activation-progress">
+        <div class="activation-progress-track">
+          <div class="activation-progress-bar"></div>
+        </div>
+        <div class="activation-meta">
+          <span id="activationDevice">—</span>
+          <span id="activationTimer">0,0 s</span>
+        </div>
+      </div>
+
+      <div class="activation-steps" aria-hidden="true">
+        <span class="step-dot active"></span>
+        <span class="step-line"></span>
+        <span class="step-dot"></span>
+        <span class="step-line"></span>
+        <span class="step-dot"></span>
+      </div>
+    </div>
+
+    <div id="activationSuccess" class="activation-result" hidden>
+      <div class="success-check">✓</div>
+      <p class="activation-kicker">MASTER XCLOUD</p>
+      <h2>ATIVAÇÃO CONCLUÍDA</h2>
+      <p class="activation-message">Dispositivo configurado com sucesso.</p>
+
+      <div class="result-card">
+        <span>Device Key / MAC</span>
+        <strong id="successDevice">—</strong>
+        <small id="successTime">Concluído</small>
+      </div>
+
+      <button id="newActivationBtn" class="primary">NOVA ATIVAÇÃO</button>
+    </div>
+
+    <div id="activationError" class="activation-result" hidden>
+      <div class="error-mark">!</div>
+      <p class="activation-kicker">MASTER XCLOUD</p>
+      <h2>NÃO FOI POSSÍVEL ATIVAR</h2>
+      <p id="activationErrorText" class="activation-message">Ocorreu um erro durante a ativação.</p>
+      <button id="retryActivationBtn" class="primary">TENTAR NOVAMENTE</button>
+    </div>
+  </div>
+</div>
+
 <main class="shell">
   <section id="loginView" class="login-view">
     <div class="login-card">
