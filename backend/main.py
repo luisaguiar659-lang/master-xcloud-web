@@ -9,7 +9,7 @@ from xcloud import login as xlogin, add_device, add_playlist, XCloudError
 
 load_dotenv()
 
-app = FastAPI(title="Master XCloud API", version="3.0")
+app = FastAPI(title="Master XCloud API", version="3.1-fast")
 
 origins = [x.strip() for x in os.getenv("FRONTEND_ORIGINS", "*").split(",") if x.strip()]
 app.add_middleware(
@@ -31,6 +31,7 @@ sessions = {}
 @dataclass
 class Session:
     context: object
+    page: object
     expires: float
     lock: asyncio.Lock
 
@@ -83,7 +84,6 @@ async def session_from(auth):
             except Exception:
                 pass
             sessions.pop(token, None)
-
         raise HTTPException(401, "Sessão expirada.")
 
     s.expires = time.time() + TTL
@@ -92,33 +92,30 @@ async def session_from(auth):
 
 @app.get("/health")
 async def health():
-    return {"ok": True, "service": "master-xcloud-api"}
+    return {"ok": True, "service": "master-xcloud-api", "mode": "fast-safe"}
 
 
 @app.post("/auth/login")
 async def auth_login(data: LoginIn):
     ctx = await browser.new_context()
-
-    # Só a aba de login é temporária.
     page = await ctx.new_page()
+    page.set_default_timeout(10000)
+
     try:
         await xlogin(page, data.email.strip(), data.password)
     except Exception as e:
         try:
-            await page.close()
+            await ctx.close()
         except Exception:
             pass
-        await ctx.close()
         raise HTTPException(401, str(e))
 
-    try:
-        await page.close()
-    except Exception:
-        pass
-
+    # Mantém a MESMA aba viva durante toda a sessão.
+    # Isso evita abrir/fechar Chromium a cada ativação.
     token = secrets.token_urlsafe(32)
     sessions[token] = Session(
         context=ctx,
+        page=page,
         expires=time.time() + TTL,
         lock=asyncio.Lock(),
     )
@@ -149,29 +146,20 @@ async def auth_logout(authorization: str | None = Header(default=None)):
 
 
 async def run_op(auth, fn):
-    """
-    Cada operação usa uma aba nova.
-    O contexto/cookies permanece logado entre as operações.
-    Assim uma navegação ruim ou modal deixado por uma operação
-    não contamina a próxima.
-    """
     _, s = await session_from(auth)
 
     async with s.lock:
-        page = await s.context.new_page()
-        page.set_default_timeout(12000)
+        # Recuperação automática se a aba tiver sido fechada por algum motivo.
+        if s.page is None or s.page.is_closed():
+            s.page = await s.context.new_page()
+            s.page.set_default_timeout(10000)
 
         try:
-            return await fn(page)
+            return await fn(s.page)
         except XCloudError as e:
             raise HTTPException(400, str(e))
         except Exception as e:
             raise HTTPException(500, f"Falha na automação: {e}")
-        finally:
-            try:
-                await page.close()
-            except Exception:
-                pass
 
 
 @app.post("/operations/activate")
@@ -186,5 +174,3 @@ async def activate(data: OpIn, authorization: str | None = Header(default=None))
         return {"ok": True, "message": "Ativar MAC + DNS concluído."}
 
     return await run_op(authorization, op)
-
-

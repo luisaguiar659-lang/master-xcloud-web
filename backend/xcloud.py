@@ -67,7 +67,7 @@ async def _wait_event(page, success_codes, timeout=30000):
             if typ == "success" and code in success_codes:
                 return event
 
-        await asyncio.sleep(0.25)
+        await asyncio.sleep(0.12)
 
     raise XCloudError("Tempo limite da automação excedido.")
 
@@ -148,7 +148,7 @@ async def login(page, email, password):
 
 async def _goto_devices(page):
     await page.goto(PANEL_DEVICES, wait_until="domcontentloaded", timeout=45000)
-    await asyncio.sleep(1.5)
+    await asyncio.sleep(0.55)
     if "login" in page.url.lower():
         raise XCloudError("Sessão expirada.")
 
@@ -271,7 +271,7 @@ async def add_device(page, device):
               return;
             }}
 
-            if(wait>=40) {{
+            if(wait>=26) {{
               clearInterval(verify);
               /*
                * Igual ao app, mas com um fallback adicional:
@@ -284,9 +284,9 @@ async def add_device(page, device):
                 post('error','DEVICE_ADD_NOT_CONFIRMED','O dispositivo não apareceu no painel após o cadastro.');
               }}
             }}
-          }},500);
-        }},1200);
-      }},500);
+          }},220);
+        }},520);
+      }},220);
     }})()
     """
 
@@ -317,11 +317,11 @@ async def add_device(page, device):
         if(found) {{
           clearInterval(timer);
           post('success','DEVICE_ADDED','Dispositivo confirmado após recarregar a lista.');
-        }} else if(n>=30) {{
+        }} else if(n>=24) {{
           clearInterval(timer);
           post('error','DEVICE_ADD_NOT_CONFIRMED','O dispositivo não apareceu no painel após o cadastro.');
         }}
-      }},500);
+      }},220);
     }})()
     """
     await _run_js(page, verify_js, {"DEVICE_ADDED"}, timeout=20000)
@@ -333,7 +333,7 @@ async def add_playlist(page, device, playlist):
 
     url = f"{PLAYLIST_BASE}?device_key={quote(device)}&type=xtream&mode=add"
     await page.goto(url, wait_until="domcontentloaded", timeout=45000)
-    await asyncio.sleep(1)
+    await asyncio.sleep(0.35)
 
     js = f"""
     (() => {{
@@ -418,13 +418,13 @@ async def add_playlist(page, device, playlist):
              * O app aceita que alguns painéis não exibam uma confirmação clara.
              * Após alguns segundos sem erro, tratamos o submit como concluído.
              */
-            if(check>=12) {{
+            if(check>=8) {{
               clearInterval(verify);
               post('success','PLAYLIST_SUBMITTED','Lista enviada ao painel sem erro visível.');
             }}
-          }},500);
-        }},700);
-      }},500);
+          }},220);
+        }},320);
+      }},220);
     }})()
     """
 
