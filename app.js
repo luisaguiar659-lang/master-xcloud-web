@@ -1,7 +1,15 @@
 const API_URL = 'https://master-xcloud-web.onrender.com';
 const $ = id => document.getElementById(id);
+
 let token = sessionStorage.getItem('xcloud_token') || '';
 let operations = Number(sessionStorage.getItem('xcloud_operations') || 0);
+let keepAliveTimer = null;
+
+function showLoginLoader(show) {
+  const loader = $('loginLoader');
+  loader.hidden = !show;
+  loader.style.display = show ? 'grid' : 'none';
+}
 
 function setLogged(v) {
   const login = $('loginView');
@@ -12,14 +20,16 @@ function setLogged(v) {
   app.hidden = !v;
   actions.hidden = !v;
 
-  // Fallback explícito para navegadores/estilos que sobrescrevam [hidden].
   login.style.display = v ? 'none' : 'grid';
   app.style.display = v ? 'grid' : 'none';
   actions.style.display = v ? 'flex' : 'none';
 
   if (v) {
     $('opsCount').textContent = operations;
+    startKeepAlive();
     window.scrollTo(0, 0);
+  } else {
+    stopKeepAlive();
   }
 }
 
@@ -45,7 +55,7 @@ async function request(path, opts = {}) {
   try { data = await r.json(); } catch {}
 
   if (!r.ok) {
-    if (r.status === 401) throw new Error(data.detail || 'Login ou sessão inválida.');
+    if (r.status === 401) throw new Error(data.detail || 'Sessão expirada. Entre novamente.');
     throw new Error(data.detail || `Erro HTTP ${r.status}`);
   }
   return data;
@@ -58,11 +68,41 @@ async function checkHealth() {
     $('loginStatus').textContent = d.ok ? 'Servidor online. Faça seu login.' : 'Servidor respondeu com erro.';
     if ($('apiState')) $('apiState').textContent = d.ok ? 'Online' : 'Erro';
     return true;
-  } catch (e) {
-    $('loginStatus').textContent = 'Servidor gratuito pode estar acordando. Aguarde 30–60 segundos e tente entrar.';
+  } catch {
+    $('loginStatus').textContent = 'Servidor gratuito pode estar acordando. A primeira conexão pode demorar.';
     if ($('apiState')) $('apiState').textContent = 'Acordando';
     return false;
   }
+}
+
+async function validateStoredSession() {
+  if (!token) return false;
+  try {
+    await request('/auth/session');
+    return true;
+  } catch {
+    token = '';
+    sessionStorage.removeItem('xcloud_token');
+    return false;
+  }
+}
+
+function startKeepAlive() {
+  stopKeepAlive();
+  keepAliveTimer = setInterval(async () => {
+    if (!token) return;
+    try {
+      await request('/auth/session');
+      if ($('apiState')) $('apiState').textContent = 'Online';
+    } catch {
+      if ($('apiState')) $('apiState').textContent = 'Reconectar';
+    }
+  }, 10 * 60 * 1000);
+}
+
+function stopKeepAlive() {
+  if (keepAliveTimer) clearInterval(keepAliveTimer);
+  keepAliveTimer = null;
 }
 
 $('revealPassword').onclick = () => {
@@ -74,6 +114,7 @@ $('revealPassword').onclick = () => {
 $('loginBtn').onclick = async () => {
   const email = $('email').value.trim();
   const password = $('password').value;
+
   if (!email || !password) {
     $('loginStatus').textContent = 'Preencha e-mail e senha.';
     return;
@@ -81,14 +122,15 @@ $('loginBtn').onclick = async () => {
 
   const b = $('loginBtn');
   b.disabled = true;
-  b.textContent = 'ENTRANDO...';
-  $('loginStatus').textContent = 'Entrando no painel XCloud. Se o servidor estava parado, pode levar até 1 minuto...';
+  showLoginLoader(true);
+  $('loginStatus').textContent = 'Conectando...';
 
   try {
     const d = await request('/auth/login', {
       method: 'POST',
       body: JSON.stringify({email, password})
     });
+
     token = d.token;
     sessionStorage.setItem('xcloud_token', token);
     $('password').value = '';
@@ -97,8 +139,8 @@ $('loginBtn').onclick = async () => {
   } catch (e) {
     $('loginStatus').textContent = e.message;
   } finally {
+    showLoginLoader(false);
     b.disabled = false;
-    b.textContent = 'ENTRAR';
   }
 };
 
@@ -122,9 +164,8 @@ $('executeBtn').onclick = async () => {
   const playlist = $('playlist').value.trim();
 
   if (!device) { alert('Informe o Device Key / MAC.'); return; }
-  if (flow !== 'delete' && !playlist) { alert('Informe a M3U / DNS.'); return; }
+  if (flow === 'activate' && !playlist) { alert('Informe a M3U / DNS.'); return; }
   if (flow === 'delete' && !confirm(`Excluir ${device}?`)) return;
-  if (flow === 'reset' && !confirm(`Resetar ${device}? O dispositivo será excluído e cadastrado novamente.`)) return;
 
   const b = $('executeBtn');
   b.disabled = true;
@@ -132,26 +173,33 @@ $('executeBtn').onclick = async () => {
   $('timeline').innerHTML = '';
 
   row('working', 'INÍCIO',
-    flow === 'activate' ? 'Ativando dispositivo e DNS...' :
-    flow === 'reset' ? 'Excluindo, recriando e adicionando DNS...' :
-    'Excluindo dispositivo...'
+    flow === 'activate'
+      ? 'Ativando dispositivo e DNS...'
+      : 'Excluindo dispositivo...'
   );
 
   try {
     const d = await request(`/operations/${flow}`, {
       method: 'POST',
-      body: JSON.stringify({device, playlist: flow === 'delete' ? null : playlist})
+      body: JSON.stringify({
+        device,
+        playlist: flow === 'delete' ? null : playlist
+      })
     });
+
     row('success', 'CONCLUÍDO', d.message || 'Operação concluída.');
     operations++;
     sessionStorage.setItem('xcloud_operations', operations);
     $('opsCount').textContent = operations;
+
+    // Mantém os campos prontos para a próxima operação.
+    $('device').focus();
   } catch (e) {
     row('error', 'ERRO', e.message);
-    if (/sessão|login/i.test(e.message)) {
+    if (/sessão expirada|sessão ausente/i.test(e.message)) {
       token = '';
       sessionStorage.removeItem('xcloud_token');
-      setTimeout(() => setLogged(false), 1200);
+      setTimeout(() => setLogged(false), 1000);
     }
   } finally {
     b.disabled = false;
@@ -161,5 +209,9 @@ $('executeBtn').onclick = async () => {
 
 (async () => {
   await checkHealth();
-  if (token) setLogged(true);
+
+  if (token) {
+    const valid = await validateStoredSession();
+    setLogged(valid);
+  }
 })();
