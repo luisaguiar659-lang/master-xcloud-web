@@ -324,3 +324,11 @@
   .activation-logo-wrap{width:154px;height:154px}
   .activation-logo{width:96px}
 }
+
+.install-app-btn{
+  border-color:rgba(0,184,255,.35);
+  color:#bcecff;
+}
+@media (display-mode: standalone){
+  .install-app-btn{display:none !important}
+}

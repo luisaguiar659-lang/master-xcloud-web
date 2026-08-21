@@ -309,3 +309,49 @@ $('executeBtn').onclick = async () => {
     setLogged(valid);
   }
 })();
+
+
+let deferredInstallPrompt = null;
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+  });
+}
+
+window.addEventListener('beforeinstallprompt', event => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  const btn = $('installAppBtn');
+  if (btn) {
+    btn.hidden = false;
+    btn.style.display = 'inline-flex';
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  const btn = $('installAppBtn');
+  if (btn) {
+    btn.hidden = true;
+    btn.style.display = 'none';
+  }
+});
+
+const installBtn = $('installAppBtn');
+if (installBtn) {
+  installBtn.addEventListener('click', async () => {
+    if (!deferredInstallPrompt) {
+      alert('No Android, abra o menu do navegador e escolha "Adicionar à tela inicial". No iPhone, use Compartilhar → Adicionar à Tela de Início.');
+      return;
+    }
+
+    deferredInstallPrompt.prompt();
+    try {
+      await deferredInstallPrompt.userChoice;
+    } catch {}
+    deferredInstallPrompt = null;
+    installBtn.hidden = true;
+    installBtn.style.display = 'none';
+  });
+}
