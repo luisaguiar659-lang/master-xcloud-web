@@ -5,7 +5,7 @@ from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from playwright.async_api import async_playwright
-from xcloud import login as xlogin, add_device, add_playlist, delete_device, XCloudError
+from xcloud import login as xlogin, add_device, add_playlist, XCloudError
 
 load_dotenv()
 
@@ -188,10 +188,3 @@ async def activate(data: OpIn, authorization: str | None = Header(default=None))
     return await run_op(authorization, op)
 
 
-@app.post("/operations/delete")
-async def delete(data: OpIn, authorization: str | None = Header(default=None)):
-    async def op(page):
-        await delete_device(page, data.device.strip().upper())
-        return {"ok": True, "message": "Dispositivo excluído."}
-
-    return await run_op(authorization, op)
