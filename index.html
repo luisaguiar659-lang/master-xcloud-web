@@ -69,21 +69,17 @@
         <span class="safe-pill">Sessão protegida</span>
       </div>
 
-      <label>Operação</label>
-      <select id="flow">
-        <option value="activate">Ativar MAC + DNS</option>
-        <option value="delete">Excluir MAC</option>
-      </select>
+      <div class="fixed-flow"><strong>Ativar MAC + DNS</strong></div>
 
       <label>Device Key / MAC</label>
       <input id="device" type="text" placeholder="DEVICE123" autocapitalize="characters">
 
-      <div id="playlistGroup">
+      <div>
         <label>M3U / DNS</label>
         <textarea id="playlist" rows="3" placeholder="http://servidor.exemplo/get.php?..." spellcheck="false"></textarea>
       </div>
 
-      <button id="executeBtn" class="primary">EXECUTAR</button>
+      <button id="executeBtn" class="primary">ATIVAR MAC + DNS</button>
       <p class="hint">A sessão permanece ativa para executar várias operações sem fazer login novamente.</p>
     </section>
 

@@ -154,48 +154,44 @@ $('logoutBtn').onclick = async () => {
   $('loginStatus').textContent = 'Sessão encerrada.';
 };
 
-$('flow').onchange = () => {
-  $('playlistGroup').hidden = $('flow').value === 'delete';
-};
-
 $('executeBtn').onclick = async () => {
-  const flow = $('flow').value;
   const device = $('device').value.trim().toUpperCase();
   const playlist = $('playlist').value.trim();
 
-  if (!device) { alert('Informe o Device Key / MAC.'); return; }
-  if (flow === 'activate' && !playlist) { alert('Informe a M3U / DNS.'); return; }
-  if (flow === 'delete' && !confirm(`Excluir ${device}?`)) return;
+  if (!device) {
+    alert('Informe o Device Key / MAC.');
+    return;
+  }
+
+  if (!playlist) {
+    alert('Informe a M3U / DNS.');
+    return;
+  }
 
   const b = $('executeBtn');
   b.disabled = true;
   b.textContent = 'PROCESSANDO...';
   $('timeline').innerHTML = '';
 
-  row('working', 'INÍCIO',
-    flow === 'activate'
-      ? 'Ativando dispositivo e DNS...'
-      : 'Excluindo dispositivo...'
-  );
+  row('working', 'ATIVANDO', 'Cadastrando dispositivo e adicionando DNS...');
 
   try {
-    const d = await request(`/operations/${flow}`, {
+    const d = await request('/operations/activate', {
       method: 'POST',
-      body: JSON.stringify({
-        device,
-        playlist: flow === 'delete' ? null : playlist
-      })
+      body: JSON.stringify({device, playlist})
     });
 
-    row('success', 'CONCLUÍDO', d.message || 'Operação concluída.');
+    row('success', 'CONCLUÍDO', d.message || 'Ativação concluída.');
     operations++;
     sessionStorage.setItem('xcloud_operations', operations);
     $('opsCount').textContent = operations;
 
-    // Mantém os campos prontos para a próxima operação.
+    $('device').value = '';
+    $('playlist').value = '';
     $('device').focus();
   } catch (e) {
     row('error', 'ERRO', e.message);
+
     if (/sessão expirada|sessão ausente/i.test(e.message)) {
       token = '';
       sessionStorage.removeItem('xcloud_token');
@@ -203,7 +199,7 @@ $('executeBtn').onclick = async () => {
     }
   } finally {
     b.disabled = false;
-    b.textContent = 'EXECUTAR';
+    b.textContent = 'ATIVAR MAC + DNS';
   }
 };
 
