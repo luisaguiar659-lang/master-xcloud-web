@@ -1,111 +1,94 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#07090b" />
-  <title>Master XCloud Web</title>
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07090b">
+  <title>Master XCloud</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <div class="wordmark">MASTER XCLOUD</div>
-      <div class="top-actions" id="topActions" hidden>
-        <button class="ghost" id="summaryBtn" type="button">RESUMO</button>
-        <button class="ghost" id="logoutBtn" type="button">SAIR</button>
-      </div>
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="wordmark">MASTER XCLOUD</div>
+    <div id="topActions" class="top-actions" hidden>
+      <button id="logoutBtn" class="ghost">SAIR</button>
     </div>
-    <div class="glow-line"></div>
-  </header>
+  </div>
+  <div class="glow-line"></div>
+</header>
 
-  <main class="shell">
-    <section class="login-view" id="loginView">
-      <div class="login-card">
-        <img class="logo large" src="logo_master_xcloud.png" alt="Master XCloud" />
-        <h1>MASTER XCLOUD</h1>
-        <p class="muted">Versão web demonstrativa para GitHub Pages.</p>
+<main class="shell">
+  <section id="loginView" class="login-view">
+    <div class="login-card">
+      <img class="logo large" src="logo_master_xcloud.png" alt="Master XCloud">
+      <h1>MASTER XCLOUD</h1>
+      <p class="muted">Acesso ao painel web.</p>
 
-        <label for="email">E-mail</label>
-        <input id="email" type="email" autocomplete="username" placeholder="seu@email.com" />
+      <label>E-mail</label>
+      <input id="email" type="email" autocomplete="username" placeholder="seu@email.com">
 
-        <label for="password">Senha</label>
-        <div class="password-wrap">
-          <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" />
-          <button class="reveal" id="revealPassword" type="button" aria-label="Mostrar senha">Mostrar</button>
-        </div>
-
-        <button class="primary" id="loginBtn" type="button">ENTRAR NA DEMONSTRAÇÃO</button>
-        <p class="status" id="loginStatus">Nenhuma credencial é enviada ou salva nesta versão.</p>
+      <label>Senha</label>
+      <div class="password-wrap">
+        <input id="password" type="password" autocomplete="current-password" placeholder="••••••••">
+        <button id="revealPassword" class="reveal" type="button">Mostrar</button>
       </div>
+
+      <button id="loginBtn" class="primary">ENTRAR</button>
+      <p id="loginStatus" class="status">Servidor: verificando...</p>
+    </div>
+  </section>
+
+  <section id="appView" class="app-view" hidden>
+    <div class="brand-card card">
+      <img class="logo mini" src="logo_master_xcloud.png" alt="">
+      <div>
+        <h2>MASTER XCLOUD</h2>
+        <p id="connectionStatus" class="online">● Conectado</p>
+      </div>
+      <span class="badge">WEB</span>
+    </div>
+
+    <div class="dashboard-grid">
+      <article class="metric card"><span>Operações nesta sessão</span><strong id="opsCount">0</strong></article>
+      <article class="metric card"><span>Backend</span><strong id="apiState">Online</strong></article>
+      <article class="metric card"><span>Sessão</span><strong>Privada</strong></article>
+    </div>
+
+    <section class="panel card">
+      <div class="section-head">
+        <div><p class="eyebrow">PAINEL DE AUTOMAÇÃO</p><h3>Executar operação</h3></div>
+        <span class="safe-pill">Sessão protegida</span>
+      </div>
+
+      <label>Operação</label>
+      <select id="flow">
+        <option value="activate">Ativar MAC + DNS</option>
+        <option value="reset">Editar (Reset) + DNS</option>
+        <option value="delete">Excluir MAC</option>
+      </select>
+
+      <label>Device Key / MAC</label>
+      <input id="device" type="text" placeholder="DEVICE123">
+
+      <div id="playlistGroup">
+        <label>M3U / DNS</label>
+        <textarea id="playlist" rows="3" placeholder="http://servidor.exemplo/get.php?..." spellcheck="false"></textarea>
+      </div>
+
+      <button id="executeBtn" class="primary">EXECUTAR</button>
+      <p class="hint">A senha é usada somente para abrir a sessão no backend e não é gravada no GitHub Pages.</p>
     </section>
 
-    <section class="app-view" id="appView" hidden>
-      <div class="brand-card card">
-        <img class="logo mini" src="assets/logo_master_xcloud.png" alt="" />
-        <div>
-          <h2>MASTER XCLOUD</h2>
-          <p class="online">● Web pronta</p>
-        </div>
-        <span class="badge">DEMO</span>
+    <section class="panel card">
+      <p class="eyebrow">STATUS DA AUTOMAÇÃO</p>
+      <div id="timeline" class="timeline">
+        <div class="timeline-row neutral"><span class="dot"></span><div><strong>PRONTO</strong><p>Aguardando operação.</p></div></div>
       </div>
-
-      <div class="dashboard-grid">
-        <article class="metric card"><span>Operações hoje</span><strong id="opsCount">0</strong></article>
-        <article class="metric card"><span>Status</span><strong>Online</strong></article>
-        <article class="metric card"><span>Modo</span><strong>GitHub Pages</strong></article>
-      </div>
-
-      <section class="panel card">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">PAINEL DE AUTOMAÇÃO</p>
-            <h3>Executar operação</h3>
-          </div>
-          <span class="safe-pill">Simulação segura</span>
-        </div>
-
-        <label for="flow">Operação</label>
-        <select id="flow">
-          <option value="activate">Ativar MAC + DNS</option>
-          <option value="reset">Editar (Reset) + DNS</option>
-          <option value="delete">Excluir MAC</option>
-        </select>
-
-        <label for="device">Device Key / MAC</label>
-        <input id="device" type="text" placeholder="00:11:22:33:44:55" />
-
-        <div id="playlistGroup">
-          <label for="playlist">M3U / DNS</label>
-          <div class="password-wrap">
-            <textarea id="playlist" rows="3" placeholder="http://servidor.exemplo/get.php?..." spellcheck="false"></textarea>
-            <button class="reveal textarea-reveal" id="togglePlaylist" type="button">Mostrar</button>
-          </div>
-        </div>
-
-        <button class="primary" id="executeBtn" type="button">EXECUTAR SIMULAÇÃO</button>
-        <p class="hint">Esta versão não envia dados ao painel XCloud. O backend será conectado em uma etapa posterior.</p>
-      </section>
-
-      <section class="panel card">
-        <p class="eyebrow">STATUS DA AUTOMAÇÃO</p>
-        <div class="timeline" id="timeline">
-          <div class="timeline-row neutral"><span class="dot"></span><div><strong>PRONTO</strong><p>Pronto para iniciar uma simulação.</p></div></div>
-        </div>
-      </section>
     </section>
-  </main>
+  </section>
+</main>
 
-  <dialog id="summaryDialog">
-    <div class="dialog-head"><h3>Resumo da versão web</h3><button id="closeSummary" class="ghost" type="button">Fechar</button></div>
-    <p>Interface estática compatível com GitHub Pages. Login e automações são demonstrativos e não armazenam sua senha.</p>
-    <ul>
-      <li>Responsiva para celular e computador.</li>
-      <li>Visual baseado no Master XCloud v1.8.0.</li>
-      <li>Preparada para receber uma API segura no futuro.</li>
-    </ul>
-  </dialog>
-
-  <script src="app.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

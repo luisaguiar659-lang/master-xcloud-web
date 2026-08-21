@@ -1,59 +1,155 @@
-const $ = (id) => document.getElementById(id);
-const loginView = $("loginView");
-const appView = $("appView");
-const topActions = $("topActions");
-const timeline = $("timeline");
-let operations = 0;
+const API_URL = 'https://master-xcloud-web.onrender.com';
+const $ = id => document.getElementById(id);
+let token = sessionStorage.getItem('xcloud_token') || '';
+let operations = Number(sessionStorage.getItem('xcloud_operations') || 0);
 
-function setLoggedIn(value){
-  loginView.hidden = value;
-  appView.hidden = !value;
-  topActions.hidden = !value;
-  if(value) window.scrollTo({top:0,behavior:"smooth"});
+function setLogged(v) {
+  $('loginView').hidden = v;
+  $('appView').hidden = !v;
+  $('topActions').hidden = !v;
+  if (v) {
+    $('opsCount').textContent = operations;
+    scrollTo(0, 0);
+  }
 }
 
-$("revealPassword").addEventListener("click",()=>{
-  const field=$("password");
-  field.type=field.type==="password"?"text":"password";
-  $("revealPassword").textContent=field.type==="password"?"Mostrar":"Ocultar";
-});
-
-$("loginBtn").addEventListener("click",()=>{
-  const email=$("email").value.trim();
-  const password=$("password").value;
-  if(!email || !password){$("loginStatus").textContent="Preencha e-mail e senha para abrir a demonstração.";return;}
-  $("loginStatus").textContent="Abrindo demonstração…";
-  setTimeout(()=>{setLoggedIn(true);$("password").value="";},250);
-});
-
-$("logoutBtn").addEventListener("click",()=>{setLoggedIn(false);$("loginStatus").textContent="Sessão de demonstração encerrada.";});
-$("flow").addEventListener("change",()=>{$("playlistGroup").hidden=$("flow").value==="delete";});
-$("togglePlaylist").addEventListener("click",()=>{
-  const t=$("playlist");
-  const hidden=t.dataset.hidden!=="false";
-  t.dataset.hidden=hidden?"false":"true";
-  t.style.webkitTextSecurity=hidden?"none":"disc";
-  $("togglePlaylist").textContent=hidden?"Ocultar":"Mostrar";
-});
-
-function row(type,title,text){
-  const div=document.createElement("div"); div.className=`timeline-row ${type}`;
-  div.innerHTML=`<span class="dot"></span><div><strong>${title}</strong><p>${text}</p></div>`;
-  timeline.appendChild(div);
+function row(type, title, text) {
+  const d = document.createElement('div');
+  d.className = `timeline-row ${type}`;
+  d.innerHTML = `<span class="dot"></span><div><strong>${title}</strong><p>${text}</p></div>`;
+  $('timeline').appendChild(d);
 }
 
-$("executeBtn").addEventListener("click",async()=>{
-  const device=$("device").value.trim(); const flow=$("flow").value; const playlist=$("playlist").value.trim();
-  if(!device){alert("Informe o Device Key / MAC.");return;}
-  if(flow!=="delete" && !playlist){alert("Informe a M3U / DNS.");return;}
-  const btn=$("executeBtn"); btn.disabled=true; btn.textContent="PROCESSANDO…"; timeline.innerHTML="";
-  row("working","VALIDANDO","Conferindo os dados informados.");
-  await new Promise(r=>setTimeout(r,450));
-  row("working","SIMULANDO",flow==="delete"?"Simulando exclusão do dispositivo.":flow==="reset"?"Simulando reset e atualização de DNS.":"Simulando ativação e configuração de DNS.");
-  await new Promise(r=>setTimeout(r,650));
-  row("success","CONCLUÍDO","Simulação concluída. Nenhuma alteração real foi enviada ao painel.");
-  operations++; $("opsCount").textContent=operations; btn.disabled=false; btn.textContent="EXECUTAR SIMULAÇÃO";
-});
+async function request(path, opts = {}) {
+  const headers = {'Content-Type': 'application/json', ...(opts.headers || {})};
+  if (token) headers.Authorization = `Bearer ${token}`;
 
-$("summaryBtn").addEventListener("click",()=>$("summaryDialog").showModal());
-$("closeSummary").addEventListener("click",()=>$("summaryDialog").close());
+  let r;
+  try {
+    r = await fetch(API_URL + path, {...opts, headers});
+  } catch (e) {
+    throw new Error('Não foi possível conectar ao servidor. Aguarde alguns segundos e tente novamente.');
+  }
+
+  let data = {};
+  try { data = await r.json(); } catch {}
+
+  if (!r.ok) {
+    if (r.status === 401) throw new Error(data.detail || 'Login ou sessão inválida.');
+    throw new Error(data.detail || `Erro HTTP ${r.status}`);
+  }
+  return data;
+}
+
+async function checkHealth() {
+  $('loginStatus').textContent = 'Verificando servidor...';
+  try {
+    const d = await request('/health');
+    $('loginStatus').textContent = d.ok ? 'Servidor online. Faça seu login.' : 'Servidor respondeu com erro.';
+    if ($('apiState')) $('apiState').textContent = d.ok ? 'Online' : 'Erro';
+    return true;
+  } catch (e) {
+    $('loginStatus').textContent = 'Servidor gratuito pode estar acordando. Aguarde 30–60 segundos e tente entrar.';
+    if ($('apiState')) $('apiState').textContent = 'Acordando';
+    return false;
+  }
+}
+
+$('revealPassword').onclick = () => {
+  const f = $('password');
+  f.type = f.type === 'password' ? 'text' : 'password';
+  $('revealPassword').textContent = f.type === 'password' ? 'Mostrar' : 'Ocultar';
+};
+
+$('loginBtn').onclick = async () => {
+  const email = $('email').value.trim();
+  const password = $('password').value;
+  if (!email || !password) {
+    $('loginStatus').textContent = 'Preencha e-mail e senha.';
+    return;
+  }
+
+  const b = $('loginBtn');
+  b.disabled = true;
+  b.textContent = 'ENTRANDO...';
+  $('loginStatus').textContent = 'Entrando no painel XCloud. Se o servidor estava parado, pode levar até 1 minuto...';
+
+  try {
+    const d = await request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({email, password})
+    });
+    token = d.token;
+    sessionStorage.setItem('xcloud_token', token);
+    $('password').value = '';
+    $('loginStatus').textContent = 'Conectado.';
+    setLogged(true);
+  } catch (e) {
+    $('loginStatus').textContent = e.message;
+  } finally {
+    b.disabled = false;
+    b.textContent = 'ENTRAR';
+  }
+};
+
+$('logoutBtn').onclick = async () => {
+  try { await request('/auth/logout', {method: 'POST'}); } catch {}
+  token = '';
+  operations = 0;
+  sessionStorage.removeItem('xcloud_token');
+  sessionStorage.removeItem('xcloud_operations');
+  setLogged(false);
+  $('loginStatus').textContent = 'Sessão encerrada.';
+};
+
+$('flow').onchange = () => {
+  $('playlistGroup').hidden = $('flow').value === 'delete';
+};
+
+$('executeBtn').onclick = async () => {
+  const flow = $('flow').value;
+  const device = $('device').value.trim().toUpperCase();
+  const playlist = $('playlist').value.trim();
+
+  if (!device) { alert('Informe o Device Key / MAC.'); return; }
+  if (flow !== 'delete' && !playlist) { alert('Informe a M3U / DNS.'); return; }
+  if (flow === 'delete' && !confirm(`Excluir ${device}?`)) return;
+  if (flow === 'reset' && !confirm(`Resetar ${device}? O dispositivo será excluído e cadastrado novamente.`)) return;
+
+  const b = $('executeBtn');
+  b.disabled = true;
+  b.textContent = 'PROCESSANDO...';
+  $('timeline').innerHTML = '';
+
+  row('working', 'INÍCIO',
+    flow === 'activate' ? 'Ativando dispositivo e DNS...' :
+    flow === 'reset' ? 'Excluindo, recriando e adicionando DNS...' :
+    'Excluindo dispositivo...'
+  );
+
+  try {
+    const d = await request(`/operations/${flow}`, {
+      method: 'POST',
+      body: JSON.stringify({device, playlist: flow === 'delete' ? null : playlist})
+    });
+    row('success', 'CONCLUÍDO', d.message || 'Operação concluída.');
+    operations++;
+    sessionStorage.setItem('xcloud_operations', operations);
+    $('opsCount').textContent = operations;
+  } catch (e) {
+    row('error', 'ERRO', e.message);
+    if (/sessão|login/i.test(e.message)) {
+      token = '';
+      sessionStorage.removeItem('xcloud_token');
+      setTimeout(() => setLogged(false), 1200);
+    }
+  } finally {
+    b.disabled = false;
+    b.textContent = 'EXECUTAR';
+  }
+};
+
+(async () => {
+  await checkHealth();
+  if (token) setLogged(true);
+})();
