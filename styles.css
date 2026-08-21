@@ -256,3 +256,71 @@
   .activation-progress-bar{animation-duration:2.6s}
   .step-dot.active{animation:none}
 }
+
+
+/* V7 — acabamento premium da ativação */
+.activation-logo-wrap{
+  width:172px;
+  height:172px;
+  margin-bottom:28px;
+}
+.activation-logo{
+  width:108px;
+  max-height:108px;
+  animation:logo-breathe 2.2s ease-in-out infinite alternate;
+}
+.activation-logo-wrap::before{
+  content:"";
+  position:absolute;
+  inset:25px;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(0,184,255,.18), rgba(255,119,0,.07) 45%, transparent 72%);
+  filter:blur(12px);
+  animation:aura-pulse 1.8s ease-in-out infinite alternate;
+}
+.activation-ring{
+  padding:5px;
+  filter:drop-shadow(0 0 18px rgba(0,184,255,.34));
+}
+.activation-progress-track{
+  height:8px;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.035);
+}
+.activation-progress-bar{
+  box-shadow:0 0 18px rgba(0,184,255,.38);
+}
+@keyframes aura-pulse{
+  from{opacity:.48;transform:scale(.92)}
+  to{opacity:1;transform:scale(1.08)}
+}
+@keyframes logo-breathe{
+  from{transform:scale(.98);filter:drop-shadow(0 0 12px rgba(0,184,255,.12))}
+  to{transform:scale(1.035);filter:drop-shadow(0 0 24px rgba(0,184,255,.30))}
+}
+.success-check{
+  position:relative;
+  overflow:visible;
+}
+.success-check::after{
+  content:"";
+  position:absolute;
+  inset:-13px;
+  border:2px solid rgba(51,233,133,.36);
+  border-radius:50%;
+  animation:success-wave .9s ease-out 1;
+}
+@keyframes success-wave{
+  from{transform:scale(.65);opacity:1}
+  to{transform:scale(1.45);opacity:0}
+}
+.activation-result h2{
+  animation:result-title .42s ease-out;
+}
+@keyframes result-title{
+  from{transform:translateY(8px);opacity:0}
+  to{transform:translateY(0);opacity:1}
+}
+@media (max-width:480px){
+  .activation-logo-wrap{width:154px;height:154px}
+  .activation-logo{width:96px}
+}

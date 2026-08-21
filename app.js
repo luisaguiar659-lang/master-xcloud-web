@@ -196,7 +196,7 @@ function openActivationOverlay(device) {
 
     const dots = document.querySelectorAll('.activation-steps .step-dot');
     dots.forEach((dot, idx) => dot.classList.toggle('active', idx === Math.min(messageIndex, 2)));
-  }, 3000);
+  }, 2800);
 
   activationClock = setInterval(() => {
     const seconds = (performance.now() - activationStartedAt) / 1000;
