@@ -104,7 +104,7 @@ async def login(page, email, password):
           inputs.find(i=>/current-password|password/i.test(i.autocomplete||''));
 
         if(!emailInput || !passInput) {{
-          if(attempts>=60) {{
+          if(attempts>=100) {{
             clearInterval(timer);
             post('error','LOGIN_FIELDS_NOT_FOUND','Campos de login não encontrados.');
           }}
@@ -129,19 +129,49 @@ async def login(page, email, password):
         }}
 
         post('success','LOGIN_SUBMITTED','Login enviado.');
-      }},500);
+      }},150);
     }})()
     """
 
-    await _run_js(page, js, {"LOGIN_SUBMITTED"}, timeout=35000)
+    await _run_js(page, js, {"LOGIN_SUBMITTED"}, timeout=20000)
+
+    # Confirma o login assim que o painel realmente sair da tela de acesso.
+    # O painel é uma SPA e nem sempre uma espera baseada somente na URL
+    # detecta a troca imediatamente. A checagem abaixo observa URL + conteúdo
+    # do painel e encerra no primeiro sinal confiável de sessão autenticada.
+    login_confirmed_js = r"""
+    () => {
+      const url=(window.location.href||'').toLowerCase();
+      const body=((document.body&&document.body.innerText)||'').toLowerCase();
+      const appText=/dashboard|devices|playlists|reseller|logout|sign out|device key/.test(body);
+      return !url.includes('login') || appText;
+    }
+    """
 
     try:
-        await page.wait_for_url(lambda u: "login" not in u.lower(), timeout=20000)
+        await page.wait_for_function(
+            login_confirmed_js,
+            polling=150,
+            timeout=20000,
+        )
     except Exception:
         pass
 
-    await asyncio.sleep(2)
-    if "login" in page.url.lower():
+    # Pequena estabilização do React, sem a antiga espera fixa de 2 segundos.
+    await asyncio.sleep(0.25)
+
+    state = await page.evaluate(
+        r"""
+        () => {
+          const url=(window.location.href||'').toLowerCase();
+          const body=((document.body&&document.body.innerText)||'').toLowerCase();
+          const appText=/dashboard|devices|playlists|reseller|logout|sign out|device key/.test(body);
+          return { url, appText };
+        }
+        """
+    )
+
+    if "login" in state["url"] and not state["appText"]:
         raise XCloudError("Login não confirmado. Confira e-mail e senha.")
     return True
 
