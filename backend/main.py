@@ -5,11 +5,11 @@ from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from playwright.async_api import async_playwright
-from xcloud import login as xlogin, add_device, add_playlist, XCloudError
+from xcloud_fast import login as xlogin, add_device, add_playlist, XCloudError
 
 load_dotenv()
 
-app = FastAPI(title="Master XCloud API", version="3.2-fast")
+app = FastAPI(title="Master XCloud API", version="3.3-fast")
 
 origins = [x.strip() for x in os.getenv("FRONTEND_ORIGINS", "*").split(",") if x.strip()]
 app.add_middleware(
@@ -80,9 +80,6 @@ async def shutdown():
 async def configure_context(ctx):
     async def route_handler(route):
         request = route.request
-        # A automação depende de HTML, JS, CSS e XHR/fetch. Imagens, fontes e
-        # mídia não são necessárias para encontrar campos/botões e só aumentam
-        # tráfego, CPU e tempo de renderização no servidor.
         if request.resource_type in {"image", "font", "media"}:
             await route.abort()
             return
@@ -113,7 +110,7 @@ async def session_from(auth):
 
 @app.get("/health")
 async def health():
-    return {"ok": True, "service": "master-xcloud-api", "mode": "fast-safe-v2"}
+    return {"ok": True, "service": "master-xcloud-api", "mode": "fast-safe-v3"}
 
 
 @app.post("/auth/login")
@@ -133,8 +130,6 @@ async def auth_login(data: LoginIn):
             pass
         raise HTTPException(401, str(e))
 
-    # Mantém a MESMA aba viva durante toda a sessão.
-    # Isso evita abrir/fechar Chromium a cada ativação.
     token = secrets.token_urlsafe(32)
     sessions[token] = Session(
         context=ctx,
@@ -173,7 +168,6 @@ async def run_op(auth, fn):
     _, s = await session_from(auth)
 
     async with s.lock:
-        # Recuperação automática se a aba tiver sido fechada por algum motivo.
         if s.page is None or s.page.is_closed():
             s.page = await s.context.new_page()
             s.page.set_default_timeout(10000)
