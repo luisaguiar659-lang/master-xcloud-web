@@ -9,7 +9,7 @@ from xcloud import login as xlogin, add_device, add_playlist, XCloudError
 
 load_dotenv()
 
-app = FastAPI(title="Master XCloud API", version="3.1-fast")
+app = FastAPI(title="Master XCloud API", version="3.2-fast")
 
 origins = [x.strip() for x in os.getenv("FRONTEND_ORIGINS", "*").split(",") if x.strip()]
 app.add_middleware(
@@ -52,7 +52,14 @@ async def startup():
     pw = await async_playwright().start()
     browser = await pw.chromium.launch(
         headless=HEADLESS,
-        args=["--disable-dev-shm-usage", "--no-sandbox"],
+        args=[
+            "--disable-dev-shm-usage",
+            "--no-sandbox",
+            "--disable-background-networking",
+            "--disable-component-update",
+            "--disable-default-apps",
+            "--disable-sync",
+        ],
     )
 
 
@@ -68,6 +75,20 @@ async def shutdown():
         await browser.close()
     if pw:
         await pw.stop()
+
+
+async def configure_context(ctx):
+    async def route_handler(route):
+        request = route.request
+        # A automação depende de HTML, JS, CSS e XHR/fetch. Imagens, fontes e
+        # mídia não são necessárias para encontrar campos/botões e só aumentam
+        # tráfego, CPU e tempo de renderização no servidor.
+        if request.resource_type in {"image", "font", "media"}:
+            await route.abort()
+            return
+        await route.continue_()
+
+    await ctx.route("**/*", route_handler)
 
 
 async def session_from(auth):
@@ -92,12 +113,14 @@ async def session_from(auth):
 
 @app.get("/health")
 async def health():
-    return {"ok": True, "service": "master-xcloud-api", "mode": "fast-safe"}
+    return {"ok": True, "service": "master-xcloud-api", "mode": "fast-safe-v2"}
 
 
 @app.post("/auth/login")
 async def auth_login(data: LoginIn):
-    ctx = await browser.new_context()
+    started = time.perf_counter()
+    ctx = await browser.new_context(service_workers="block")
+    await configure_context(ctx)
     page = await ctx.new_page()
     page.set_default_timeout(10000)
 
@@ -120,7 +143,8 @@ async def auth_login(data: LoginIn):
         lock=asyncio.Lock(),
     )
 
-    return {"ok": True, "token": token}
+    elapsed_ms = int((time.perf_counter() - started) * 1000)
+    return {"ok": True, "token": token, "timing_ms": {"login": elapsed_ms}}
 
 
 @app.get("/auth/session")
@@ -168,9 +192,26 @@ async def activate(data: OpIn, authorization: str | None = Header(default=None))
         raise HTTPException(422, "Informe a M3U/DNS.")
 
     async def op(page):
+        total_started = time.perf_counter()
         dev = data.device.strip().upper()
+
+        device_started = time.perf_counter()
         await add_device(page, dev)
+        device_ms = int((time.perf_counter() - device_started) * 1000)
+
+        playlist_started = time.perf_counter()
         await add_playlist(page, dev, data.playlist.strip())
-        return {"ok": True, "message": "Ativar MAC + DNS concluído."}
+        playlist_ms = int((time.perf_counter() - playlist_started) * 1000)
+
+        total_ms = int((time.perf_counter() - total_started) * 1000)
+        return {
+            "ok": True,
+            "message": "Ativar MAC + DNS concluído.",
+            "timing_ms": {
+                "device": device_ms,
+                "playlist": playlist_ms,
+                "total": total_ms,
+            },
+        }
 
     return await run_op(authorization, op)
