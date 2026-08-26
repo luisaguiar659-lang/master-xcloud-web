@@ -51,6 +51,7 @@ async def startup():
     global pw, browser
     pw = await async_playwright().start()
     browser = await pw.chromium.launch(
+        executable_path="/usr/bin/chromium",
         headless=HEADLESS,
         args=[
             "--disable-dev-shm-usage",

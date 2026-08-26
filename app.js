@@ -1,4 +1,4 @@
-const API_URL = 'https://master-xcloud-web.onrender.com';
+const API_URL = 'https://api.masterxcloud.shop';
 const $ = id => document.getElementById(id);
 
 let token = sessionStorage.getItem('xcloud_token') || '';
