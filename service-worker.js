@@ -31,7 +31,7 @@ self.addEventListener('fetch', event => {
   const url = new URL(req.url);
 
   // Never cache API calls or non-GET requests.
-  if (req.method !== 'GET' || url.hostname.includes('onrender.com')) return;
+  if (req.method !== 'GET' || url.hostname === 'api.masterxcloud.shop') return;
 
   // Network first for HTML/JS/CSS so updates arrive quickly.
   if (req.mode === 'navigate' || /\.(?:js|css)$/.test(url.pathname)) {
