@@ -1,4 +1,4 @@
-const CACHE_NAME = 'master-xcloud-v8';
+const CACHE_NAME = 'master-xcloud-v9';
 const APP_SHELL = [
   './',
   './index.html',
@@ -30,10 +30,8 @@ self.addEventListener('fetch', event => {
   const req = event.request;
   const url = new URL(req.url);
 
-  // Never cache API calls or non-GET requests.
   if (req.method !== 'GET' || url.hostname === 'api.masterxcloud.shop') return;
 
-  // Network first for HTML/JS/CSS so updates arrive quickly.
   if (req.mode === 'navigate' || /\.(?:js|css)$/.test(url.pathname)) {
     event.respondWith(
       fetch(req)
