@@ -5,6 +5,52 @@ let token = sessionStorage.getItem('xcloud_token') || '';
 let operations = Number(sessionStorage.getItem('xcloud_operations') || 0);
 let keepAliveTimer = null;
 
+const operationConfig = {
+  activate: {
+    path: '/operations/activate',
+    label: 'Ativar MAC + DNS',
+    button: 'ATIVAR MAC + DNS',
+    workingTitle: 'ATIVANDO DISPOSITIVO',
+    successTitle: 'ATIVAÇÃO CONCLUÍDA',
+    successText: 'Dispositivo configurado com sucesso.',
+    errorTitle: 'ATIVAÇÃO NÃO CONCLUÍDA',
+    messages: [
+      'Conectando ao painel...',
+      'Preparando o dispositivo...',
+      'Enviando dados de ativação...',
+      'Configurando DNS...',
+      'Finalizando a ativação...'
+    ]
+  },
+  reset: {
+    path: '/operations/reset',
+    label: 'Editar (Reset) + DNS',
+    button: 'EDITAR (RESET) + DNS',
+    workingTitle: 'RESETANDO DISPOSITIVO',
+    successTitle: 'RESET CONCLUÍDO',
+    successText: 'Dispositivo resetado e configurado novamente com sucesso.',
+    errorTitle: 'RESET NÃO CONCLUÍDO',
+    messages: [
+      'Conectando ao painel...',
+      'Removendo configuração atual...',
+      'Cadastrando o dispositivo novamente...',
+      'Reaplicando M3U / DNS...',
+      'Finalizando o reset...'
+    ]
+  }
+};
+
+function selectedOperation() {
+  const key = $('operation')?.value || 'activate';
+  return operationConfig[key] || operationConfig.activate;
+}
+
+function updateOperationUI() {
+  const op = selectedOperation();
+  if ($('operationLabel')) $('operationLabel').textContent = op.label;
+  if ($('executeBtn')) $('executeBtn').textContent = op.button;
+}
+
 function showLoginLoader(show) {
   const loader = $('loginLoader');
   loader.hidden = !show;
@@ -27,6 +73,7 @@ function setLogged(v) {
   if (v) {
     $('opsCount').textContent = operations;
     startKeepAlive();
+    updateOperationUI();
     window.scrollTo(0, 0);
   } else {
     stopKeepAlive();
@@ -37,7 +84,7 @@ function row(type, title, text) {
   const d = document.createElement('div');
   d.className = `timeline-row ${type}`;
   d.innerHTML = `<span class="dot"></span><div><strong>${title}</strong><p>${text}</p></div>`;
-  $('timeline').appendChild(d);
+  $('timeline').prepend(d);
 }
 
 async function request(path, opts = {}) {
@@ -47,7 +94,7 @@ async function request(path, opts = {}) {
   let r;
   try {
     r = await fetch(API_URL + path, {...opts, headers});
-  } catch (e) {
+  } catch {
     throw new Error('Não foi possível conectar ao servidor. Aguarde alguns segundos e tente novamente.');
   }
 
@@ -69,8 +116,8 @@ async function checkHealth() {
     if ($('apiState')) $('apiState').textContent = d.ok ? 'Online' : 'Erro';
     return true;
   } catch {
-    $('loginStatus').textContent = 'Servidor gratuito pode estar acordando. A primeira conexão pode demorar.';
-    if ($('apiState')) $('apiState').textContent = 'Acordando';
+    $('loginStatus').textContent = 'Servidor pode estar iniciando. Aguarde e tente novamente.';
+    if ($('apiState')) $('apiState').textContent = 'Aguardando';
     return false;
   }
 }
@@ -154,20 +201,11 @@ $('logoutBtn').onclick = async () => {
   $('loginStatus').textContent = 'Sessão encerrada.';
 };
 
+let operationStartedAt = 0;
+let operationClock = null;
+let operationMessagesTimer = null;
 
-let activationStartedAt = 0;
-let activationClock = null;
-let activationMessagesTimer = null;
-
-const activationMessages = [
-  'Conectando ao painel...',
-  'Preparando o dispositivo...',
-  'Enviando dados de ativação...',
-  'Configurando DNS...',
-  'Finalizando a ativação...'
-];
-
-function resetActivationOverlay() {
+function resetOperationOverlay() {
   $('activationWorking').hidden = false;
   $('activationSuccess').hidden = true;
   $('activationError').hidden = true;
@@ -177,87 +215,93 @@ function resetActivationOverlay() {
   $('activationError').style.display = 'none';
 }
 
-function openActivationOverlay(device) {
-  resetActivationOverlay();
+function openOperationOverlay(device, op) {
+  resetOperationOverlay();
 
+  $('operationWorkingTitle').textContent = op.workingTitle;
+  $('operationSuccessTitle').textContent = op.successTitle;
+  $('operationSuccessText').textContent = op.successText;
+  $('operationErrorTitle').textContent = op.errorTitle;
   $('activationDevice').textContent = device;
-  $('activationMessage').textContent = activationMessages[0];
+  $('activationMessage').textContent = op.messages[0];
   $('activationTimer').textContent = '0,0 s';
 
   $('activationOverlay').hidden = false;
   $('activationOverlay').style.display = 'grid';
 
-  activationStartedAt = performance.now();
+  operationStartedAt = performance.now();
 
   let messageIndex = 0;
-  activationMessagesTimer = setInterval(() => {
-    messageIndex = Math.min(messageIndex + 1, activationMessages.length - 1);
-    $('activationMessage').textContent = activationMessages[messageIndex];
+  operationMessagesTimer = setInterval(() => {
+    messageIndex = Math.min(messageIndex + 1, op.messages.length - 1);
+    $('activationMessage').textContent = op.messages[messageIndex];
 
     const dots = document.querySelectorAll('.activation-steps .step-dot');
     dots.forEach((dot, idx) => dot.classList.toggle('active', idx === Math.min(messageIndex, 2)));
   }, 2800);
 
-  activationClock = setInterval(() => {
-    const seconds = (performance.now() - activationStartedAt) / 1000;
+  operationClock = setInterval(() => {
+    const seconds = (performance.now() - operationStartedAt) / 1000;
     $('activationTimer').textContent = `${seconds.toFixed(1).replace('.', ',')} s`;
   }, 100);
 }
 
-function stopActivationTimers() {
-  if (activationClock) clearInterval(activationClock);
-  if (activationMessagesTimer) clearInterval(activationMessagesTimer);
-  activationClock = null;
-  activationMessagesTimer = null;
+function stopOperationTimers() {
+  if (operationClock) clearInterval(operationClock);
+  if (operationMessagesTimer) clearInterval(operationMessagesTimer);
+  operationClock = null;
+  operationMessagesTimer = null;
 }
 
-function showActivationSuccess(device) {
-  stopActivationTimers();
-  const seconds = (performance.now() - activationStartedAt) / 1000;
+function showOperationSuccess(device, op) {
+  stopOperationTimers();
+  const seconds = (performance.now() - operationStartedAt) / 1000;
 
   $('activationWorking').hidden = true;
   $('activationWorking').style.display = 'none';
-
   $('activationSuccess').hidden = false;
   $('activationSuccess').style.display = 'grid';
-
+  $('operationSuccessTitle').textContent = op.successTitle;
+  $('operationSuccessText').textContent = op.successText;
   $('successDevice').textContent = device;
   $('successTime').textContent = `Concluído em ${seconds.toFixed(1).replace('.', ',')} s`;
 }
 
-function showActivationError(message) {
-  stopActivationTimers();
+function showOperationError(message, op) {
+  stopOperationTimers();
 
   $('activationWorking').hidden = true;
   $('activationWorking').style.display = 'none';
-
   $('activationError').hidden = false;
   $('activationError').style.display = 'grid';
-
+  $('operationErrorTitle').textContent = op.errorTitle;
   $('activationErrorText').textContent = message;
 }
 
-function closeActivationOverlay() {
-  stopActivationTimers();
+function closeOperationOverlay() {
+  stopOperationTimers();
   $('activationOverlay').hidden = true;
   $('activationOverlay').style.display = 'none';
 }
 
 $('newActivationBtn').onclick = () => {
-  closeActivationOverlay();
+  closeOperationOverlay();
   $('device').value = '';
   $('playlist').value = '';
   $('device').focus();
 };
 
 $('retryActivationBtn').onclick = () => {
-  closeActivationOverlay();
+  closeOperationOverlay();
   $('device').focus();
 };
+
+$('operation').addEventListener('change', updateOperationUI);
 
 $('executeBtn').onclick = async () => {
   const device = $('device').value.trim().toUpperCase();
   const playlist = $('playlist').value.trim();
+  const op = selectedOperation();
 
   if (!device) {
     alert('Informe o Device Key / MAC.');
@@ -271,11 +315,11 @@ $('executeBtn').onclick = async () => {
 
   const b = $('executeBtn');
   b.disabled = true;
-
-  openActivationOverlay(device);
+  openOperationOverlay(device, op);
+  row('working', op.label, `Executando para ${device}...`);
 
   try {
-    const d = await request('/operations/activate', {
+    const d = await request(op.path, {
       method: 'POST',
       body: JSON.stringify({device, playlist})
     });
@@ -283,16 +327,17 @@ $('executeBtn').onclick = async () => {
     operations++;
     sessionStorage.setItem('xcloud_operations', operations);
     $('opsCount').textContent = operations;
-
-    showActivationSuccess(device);
+    showOperationSuccess(device, op);
+    row('success', op.label, d.message || 'Operação concluída.');
   } catch (e) {
-    showActivationError(e.message);
+    showOperationError(e.message, op);
+    row('error', op.label, e.message);
 
     if (/sessão expirada|sessão ausente/i.test(e.message)) {
       token = '';
       sessionStorage.removeItem('xcloud_token');
       setTimeout(() => {
-        closeActivationOverlay();
+        closeOperationOverlay();
         setLogged(false);
       }, 1800);
     }
@@ -302,6 +347,7 @@ $('executeBtn').onclick = async () => {
 };
 
 (async () => {
+  updateOperationUI();
   await checkHealth();
 
   if (token) {
@@ -309,7 +355,6 @@ $('executeBtn').onclick = async () => {
     setLogged(valid);
   }
 })();
-
 
 let deferredInstallPrompt = null;
 
@@ -347,9 +392,7 @@ if (installBtn) {
     }
 
     deferredInstallPrompt.prompt();
-    try {
-      await deferredInstallPrompt.userChoice;
-    } catch {}
+    try { await deferredInstallPrompt.userChoice; } catch {}
     deferredInstallPrompt = null;
     installBtn.hidden = true;
     installBtn.style.display = 'none';
