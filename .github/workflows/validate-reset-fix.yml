@@ -1,0 +1,25 @@
+name: Validate Reset Fix
+on:
+  push:
+    branches: [fix/reset-menu-detection]
+    paths:
+      - "clean-server/xcloud_delete.py"
+      - "clean-server/xcloud.py"
+      - "clean-server/main.py"
+      - ".github/workflows/validate-reset-fix.yml"
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validar sintaxe Python
+        run: python -m py_compile clean-server/xcloud_delete.py clean-server/xcloud.py clean-server/main.py
+      - name: Validar rotas e fluxo Reset
+        run: |
+          grep -n "async def reset_device" clean-server/xcloud_delete.py
+          grep -n "operations/reset" clean-server/main.py
+          grep -n "waitAction" clean-server/xcloud_delete.py
+          grep -n "Deactivate/Delete" clean-server/xcloud_delete.py
