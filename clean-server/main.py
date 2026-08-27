@@ -50,8 +50,9 @@ class ActivateIn(BaseModel):
     playlist: str
 
 
-class DeviceIn(BaseModel):
+class DeleteIn(BaseModel):
     device: str
+    playlist: str
 
 
 @app.on_event("startup")
@@ -153,16 +154,23 @@ async def auth_logout(authorization: str | None = Header(default=None)):
 async def activate(data: ActivateIn, authorization: str | None = Header(default=None)):
     async def op(page):
         dev = data.device.strip().upper()
+        playlist = data.playlist.strip()
+        if not playlist:
+            raise XCloudError("Informe a M3U / DNS.")
         await add_device(page, dev)
-        await add_playlist(page, dev, data.playlist.strip())
+        await add_playlist(page, dev, playlist)
         return {"ok": True, "message": "Ativar MAC + DNS concluído."}
     return await run_op(authorization, op)
 
 
 @app.post("/operations/delete")
-async def delete(data: DeviceIn, authorization: str | None = Header(default=None)):
+async def delete(data: DeleteIn, authorization: str | None = Header(default=None)):
     async def op(page):
-        await delete_device(page, data.device.strip().upper())
+        dev = data.device.strip().upper()
+        playlist = data.playlist.strip()
+        if not playlist:
+            raise XCloudError("Informe a M3U / DNS.")
+        await delete_device(page, dev, playlist)
         return {"ok": True, "message": "Dispositivo removido."}
     return await run_op(authorization, op)
 
@@ -171,6 +179,9 @@ async def delete(data: DeviceIn, authorization: str | None = Header(default=None
 async def reset(data: ActivateIn, authorization: str | None = Header(default=None)):
     async def op(page):
         dev = data.device.strip().upper()
-        await reset_device(page, dev, data.playlist.strip())
+        playlist = data.playlist.strip()
+        if not playlist:
+            raise XCloudError("Informe a M3U / DNS.")
+        await reset_device(page, dev, playlist)
         return {"ok": True, "message": "Editar (Reset) + DNS concluído."}
     return await run_op(authorization, op)
