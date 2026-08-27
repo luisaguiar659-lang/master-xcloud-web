@@ -74,7 +74,7 @@ async def delete_device(page, device, playlist=""):
       }
 
       function action(words, iconWords){
-        const selectors='[role="menuitem"],button,a,[role="button"],div,span';
+        const selectors='[role="menuitem"],button,a,[role="button"]';
         const els=[...document.querySelectorAll(selectors)].filter(visible);
 
         for(const e of els){
