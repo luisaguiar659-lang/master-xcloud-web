@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from playwright.async_api import async_playwright
 
 from xcloud import XCloudError, add_device, add_playlist, login
-from xcloud_delete import delete_device, reset_device
+from xcloud_delete import reset_device
 
 load_dotenv()
 
@@ -45,12 +45,7 @@ class LoginIn(BaseModel):
     password: str
 
 
-class ActivateIn(BaseModel):
-    device: str
-    playlist: str
-
-
-class DeleteIn(BaseModel):
+class OperationIn(BaseModel):
     device: str
     playlist: str
 
@@ -110,6 +105,16 @@ async def run_op(auth, fn):
             raise HTTPException(500, f"Falha na automação: {e}")
 
 
+def validate_operation(data: OperationIn):
+    dev = data.device.strip().upper()
+    playlist = data.playlist.strip()
+    if not dev:
+        raise XCloudError("Informe o Device Key / MAC.")
+    if not playlist:
+        raise XCloudError("Informe a M3U / DNS.")
+    return dev, playlist
+
+
 @app.get("/health")
 async def health():
     return {"ok": True, "service": "master-xcloud-api", "mode": "clean-v1"}
@@ -151,37 +156,19 @@ async def auth_logout(authorization: str | None = Header(default=None)):
 
 
 @app.post("/operations/activate")
-async def activate(data: ActivateIn, authorization: str | None = Header(default=None)):
+async def activate(data: OperationIn, authorization: str | None = Header(default=None)):
     async def op(page):
-        dev = data.device.strip().upper()
-        playlist = data.playlist.strip()
-        if not playlist:
-            raise XCloudError("Informe a M3U / DNS.")
+        dev, playlist = validate_operation(data)
         await add_device(page, dev)
         await add_playlist(page, dev, playlist)
         return {"ok": True, "message": "Ativar MAC + DNS concluído."}
     return await run_op(authorization, op)
 
 
-@app.post("/operations/delete")
-async def delete(data: DeleteIn, authorization: str | None = Header(default=None)):
-    async def op(page):
-        dev = data.device.strip().upper()
-        playlist = data.playlist.strip()
-        if not playlist:
-            raise XCloudError("Informe a M3U / DNS.")
-        await delete_device(page, dev, playlist)
-        return {"ok": True, "message": "Dispositivo removido."}
-    return await run_op(authorization, op)
-
-
 @app.post("/operations/reset")
-async def reset(data: ActivateIn, authorization: str | None = Header(default=None)):
+async def reset(data: OperationIn, authorization: str | None = Header(default=None)):
     async def op(page):
-        dev = data.device.strip().upper()
-        playlist = data.playlist.strip()
-        if not playlist:
-            raise XCloudError("Informe a M3U / DNS.")
+        dev, playlist = validate_operation(data)
         await reset_device(page, dev, playlist)
         return {"ok": True, "message": "Editar (Reset) + DNS concluído."}
     return await run_op(authorization, op)
