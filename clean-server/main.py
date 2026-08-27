@@ -10,7 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from playwright.async_api import async_playwright
 
-from xcloud import XCloudError, add_device, add_playlist, delete_device, login, reset_device
+from xcloud import XCloudError, add_device, add_playlist, login
+from xcloud_delete import delete_device, reset_device
 
 load_dotenv()
 
