@@ -21,7 +21,9 @@ android {
                 storeFile file(ksPath)
                 storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
                 keyAlias System.getenv("ANDROID_KEY_ALIAS")
-                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+                // O keystore oficial foi criado em PKCS12. Nesse formato,
+                // a senha da chave é a mesma senha do keystore.
+                keyPassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
             }
         }
     }
