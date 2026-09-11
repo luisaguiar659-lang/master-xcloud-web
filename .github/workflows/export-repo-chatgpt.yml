@@ -1,0 +1,20 @@
+name: Export Repository ZIP
+
+on:
+  push:
+    paths:
+      - '.github/workflows/export-repo-chatgpt.yml'
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create ZIP
+        run: zip -r "${{ github.event.repository.name }}.zip" . -x '.git/*' '${{ github.event.repository.name }}.zip'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.repository.name }}-zip
+          path: ${{ github.event.repository.name }}.zip
+          if-no-files-found: error
